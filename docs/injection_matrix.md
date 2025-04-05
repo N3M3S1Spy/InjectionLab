@@ -24,10 +24,10 @@ This project is for **educational use only**. Every technique here is potentiall
 | Technique                           | Uses Remote Thread | Allocates Memory | Shellcode Injection | Complexity | Source Link |
 |------------------------------------|--------------------|------------------|---------------------|------------|-------------|
 | VirtualAllocEx + WriteProcessMemory + CreateRemoteThread | ✅ | ✅ | ✅ | 🟡 Medium | [View](../src/injection_virtualallocex.cpp) |
-| (Planned) QueueUserAPC Injection   | ✅ (via APC)        | ✅               | ✅                  | 🔴 High    | Coming Soon |
-| (Planned) DLL Injection via LoadLibrary | ✅ | ✅ | ❌ (DLL instead) | 🟢 Easy    | Coming Soon |
-| (Planned) Manual Mapping           | ❌ (no API thread)  | ✅               | ✅                  | 🔴 High    | Coming Soon |
-| (Planned) NtCreateThreadEx         | ✅ | ✅ | ✅                  | 🟡 Medium | Coming Soon |
+| QueueUserAPC Injection              | ✅ (via APC)        | ✅               | ✅                  | 🔴 High    | [View](../src/injection_queueuserapc.cpp) |
+| DLL Injection via LoadLibrary      | ✅ | ✅               | ❌ (DLL instead)   | 🟢 Easy    | [View](../src/injection_dll_loadlibrary.cpp) |
+| Manual Mapping                     | ❌ (no API thread)  | ✅               | ✅                  | 🔴 High    | [View](../src/injection_manual_mapping.cpp) |
+| NtCreateThreadEx                   | ✅ | ✅               | ✅                  | 🟡 Medium | [View](../src/injection_ntcreatethreadex.cpp) |
 
 🟢 = Beginner-friendly  
 🟡 = Intermediate  
@@ -64,4 +64,3 @@ This project is for **educational and research purposes only**. Do not use it on
 ---
 
 Happy learning, and stay ethical. 🧪🔐
-

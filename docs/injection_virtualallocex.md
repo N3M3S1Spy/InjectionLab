@@ -57,6 +57,11 @@ Especially when:
 
 ---
 
+## 🔗 Resources
+
+- 📂 [View injection_virtualallocex.cpp](../src/injection_virtualallocex.cpp)
+
+
 ## 📚 References
 
 - [MalwareTech – Remote Thread Injection](https://www.malwaretech.com/2015/11/remote-thread-injection.html)

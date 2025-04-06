@@ -1,11 +1,6 @@
 # Manual DLL Mapping (Advanced Injection)
 
----
 
-## Source Code
-
-The full implementation is available here:  
-[`../src/injection_manual_dll_mapping.cpp`](../src/injection_manual_dll_mapping.cpp)
 
 
 ---
@@ -130,3 +125,10 @@ The calling process waits for the remote thread to complete execution. Once comp
 - **Granular Control:** Offers insight into low-level process interaction beyond standard API usage.
 - **Foundation for Advanced Techniques:** Forms the basis for techniques like reflective DLL injection or full manual PE mapping, which involve parsing and loading PE structures manually.
 - **AV Evasion Concepts:** Introduces the idea of avoiding standard behavior patterns monitored by security solutions.
+
+---
+
+## Source Code
+
+The full implementation is available here:  
+[`../src/injection_manual_dll_mapping.cpp`](../src/injection_manual_dll_mapping.cpp)

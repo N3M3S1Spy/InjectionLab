@@ -2,6 +2,14 @@
 
 ---
 
+## Source Code
+
+The full implementation is available here:  
+[`../src/injection_manual_dll_mapping.cpp`](../src/injection_manual_dll_mapping.cpp)
+
+
+---
+
 ## Overview
 
 This technique demonstrates **manual DLL mapping** — a method of injecting a DLL into a target process without using the standard `LoadLibraryA` function. Instead of relying on traditional Windows API calls, we manually allocate memory in the target process, write the DLL path into it, and invoke the function directly. This approach provides a stealthier injection method that can be harder for antivirus (AV) software to detect.
@@ -122,10 +130,3 @@ The calling process waits for the remote thread to complete execution. Once comp
 - **Granular Control:** Offers insight into low-level process interaction beyond standard API usage.
 - **Foundation for Advanced Techniques:** Forms the basis for techniques like reflective DLL injection or full manual PE mapping, which involve parsing and loading PE structures manually.
 - **AV Evasion Concepts:** Introduces the idea of avoiding standard behavior patterns monitored by security solutions.
-
----
-
-## Source Code
-
-The full implementation is available here:  
-[`../src/injection_manual_dll_mapping.cpp`](../src/injection_manual_dll_mapping.cpp)

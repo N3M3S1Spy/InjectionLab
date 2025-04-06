@@ -54,8 +54,12 @@ On protected or higher-privileged processes, administrator rights may be require
 
 ```cpp
 LPVOID remoteMemory = VirtualAllocEx(
-    hProcess, nullptr, dllPath.length() + 1,
-    MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    hProcess,
+    nullptr,
+    dllPath.length() + 1,
+    MEM_COMMIT | MEM_RESERVE,
+    PAGE_READWRITE
+);
 ```
 
 Allocates space inside the remote process to hold the DLL path as a null-terminated string. The memory must be writable so it can be populated with the path.
@@ -65,8 +69,13 @@ Allocates space inside the remote process to hold the DLL path as a null-termina
 ### 4. Write the DLL Path into Remote Memory
 
 ```cpp
-WriteProcessMemory(hProcess, remoteMemory,
-                   dllPath.c_str(), dllPath.length() + 1, nullptr);
+WriteProcessMemory(
+    hProcess,
+    remoteMemory,
+    dllPath.c_str(),
+    dllPath.length() + 1,
+    nullptr
+);
 ```
 
 This copies the DLL path string into the allocated memory space. The path must be absolute and null-terminated to be interpreted correctly by `LoadLibraryA`.
@@ -76,8 +85,7 @@ This copies the DLL path string into the allocated memory space. The path must b
 ### 5. Resolve Address of LoadLibraryA
 
 ```cpp
-FARPROC loadLibraryAddr = GetProcAddress(
-    GetModuleHandleA("kernel32.dll"), "LoadLibraryA");
+FARPROC loadLibraryAddr = GetProcAddress(wGetModuleHandleA("kernel32.dll"), "LoadLibraryA");
 ```
 
 Since `kernel32.dll` is loaded in nearly every process, its base address is available. `GetProcAddress` retrieves the address of `LoadLibraryA`, which will serve as the entry point for the new remote thread.
@@ -88,9 +96,13 @@ Since `kernel32.dll` is loaded in nearly every process, its base address is avai
 
 ```cpp
 HANDLE hThread = CreateRemoteThread(
-    hProcess, nullptr, 0,
+    hProcess, nullptr,
+    0,
     (LPTHREAD_START_ROUTINE)loadLibraryAddr,
-    remoteMemory, 0, nullptr);
+    remoteMemory,
+    0,
+    nullptr
+);
 ```
 
 This creates a thread inside the target process. The thread will call `LoadLibraryA` using the address of the DLL path we wrote earlier. This causes the target process to load the DLL and execute its `DllMain`.

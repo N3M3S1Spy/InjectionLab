@@ -1,25 +1,49 @@
 # EDR Detection Notes
 
-## 🎯 VirtualAlloc + CreateRemoteThread
-- Very noisy.
-- EDRs commonly flag:
-  - `PAGE_EXECUTE_READWRITE` + `WriteProcessMemory`
-  - `CreateRemoteThread` targeting another process
+## VirtualAlloc + CreateRemoteThread
 
-## ⚠️ APC Injection
-- Often missed if target thread is idle or alertable state is not active
-- Some EDRs flag the `QueueUserAPC` + memory allocation pattern
+This combination is highly detectable and commonly flagged by Endpoint Detection and Response (EDR) systems. Key indicators include:
 
-## 🚨 Process Hollowing
-- Almost always flagged
-- Behavior like unmapping image sections, writing PE headers, and resuming main thread are suspicious
+- Use of `PAGE_EXECUTE_READWRITE` memory pages  
+- Writing to remote process memory using `WriteProcessMemory`  
+- Spawning a remote thread via `CreateRemoteThread` targeting another process
 
-## 🧠 General Detection Techniques
-- Memory scanning for executable pages
-- Heuristics: injected threads, suspicious memory permissions
-- API hooking (e.g. on `WriteProcessMemory`, `CreateRemoteThread`)
-- Syscalls and ETW (Event Tracing for Windows)
+These patterns are widely recognized and often appear in known injection signatures.
 
 ---
 
-💡 Tip: Use `PAGE_READWRITE` + RWX switch later via `VirtualProtectEx` to reduce detection.
+## APC Injection
+
+Asynchronous Procedure Call (APC) injection can sometimes evade detection, particularly when:
+
+- The target thread is not in an alertable state  
+- The APC is queued but not immediately executed
+
+However, some EDRs detect the typical pattern of memory allocation followed by `QueueUserAPC`.
+
+---
+
+## Process Hollowing
+
+This technique is heavily monitored and almost always triggers alerts. EDRs typically flag:
+
+- Unmapping and rewriting of the target process’s memory space  
+- Overwriting of PE headers or image sections  
+- Resuming the main thread after payload replacement
+
+Its behavioral footprint is significant, especially when restoring execution in a previously suspended process.
+
+---
+
+## General Detection Techniques
+
+EDRs use a combination of static and behavioral analysis to detect injection activity. Common techniques include:
+
+- Scanning for memory regions marked executable that don't map to valid modules  
+- Heuristic analysis of memory permissions and thread origins  
+- API hooking to monitor functions like `WriteProcessMemory`, `CreateRemoteThread`, `VirtualAllocEx`, and `NtQueueApcThread`  
+- Monitoring syscalls and telemetry through Event Tracing for Windows (ETW)
+
+---
+
+**Tip:** Use `PAGE_READWRITE` during allocation, then change to executable later using `VirtualProtectEx` to reduce detection surface.

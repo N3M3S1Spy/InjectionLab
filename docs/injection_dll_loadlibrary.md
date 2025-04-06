@@ -2,134 +2,146 @@
 
 ---
 
-## 🔍 Overview
+## Overview
 
-This technique demonstrates **DLL injection** using three key Windows API functions:
-
-- `VirtualAllocEx()` – allocates memory in a remote process.
-- `WriteProcessMemory()` – writes a string (path to the DLL) into that memory.
-- `CreateRemoteThread()` – creates a thread in the target process that runs `LoadLibraryA` with the injected path as an argument.
-
-> 🧠 **Goal:** Dynamically load an external DLL into a remote process's address space, causing it to execute code defined in the DLL's `DllMain`.
+This technique injects a DLL into a remote process by writing the path to the DLL into the target's memory and launching a remote thread that calls `LoadLibraryA`. It’s one of the oldest and most widely used injection methods on Windows.
 
 ---
 
-## 🧰 Use Case
+## When and Why to Use
 
-This technique is a **real-world classic** in red teaming and malware engineering, often used to:
+LoadLibrary-based DLL injection is simple, stable, and compatible across all modern Windows versions. It’s commonly used to:
 
-- Hook or hijack the behavior of a process.
-- Inject surveillance, logging, or API manipulation code.
-- Load arbitrary code with fewer AV flags compared to raw shellcode.
+- Execute arbitrary code inside another process  
+- Hook or modify application behavior  
+- Load instrumentation or surveillance tools  
+- Establish initial access before switching to stealthier methods
+
+Despite being well-known and often monitored by security tools, it remains a solid choice for prototyping, learning, and initial exploitation.
 
 ---
 
-## 📚 Step-by-Step Breakdown
+## Step-by-Step Breakdown
 
-### 1. 🎯 Target Identification
+### 1. Get the Target Process ID
 
 ```cpp
 DWORD pid;
 std::cin >> pid;
 ```
 
-The user is prompted to provide the Process ID (PID) of the process to be targeted. You can obtain a PID via Task Manager or tools like `Process Explorer`.
+The injector prompts for the Process ID (PID) of the target. This can be retrieved using Task Manager, Process Explorer, or programmatically via snapshot APIs.
 
 ---
 
-### 2. 🧪 Accessing the Process
+### 2. Open the Target Process
 
 ```cpp
-OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
+HANDLE hProcess = OpenProcess(PROCESS_ALL_ACCESS, FALSE, pid);
 ```
 
-The process must be opened with sufficient privileges to:
+The handle must be opened with access rights for:
 
-- Allocate memory (`PROCESS_VM_OPERATION`)
-- Write memory (`PROCESS_VM_WRITE`)
-- Start threads (`PROCESS_CREATE_THREAD`)
+- Memory allocation (`PROCESS_VM_OPERATION`)
+- Memory writing (`PROCESS_VM_WRITE`)
+- Thread creation (`PROCESS_CREATE_THREAD`)
 
-⚠️ If your program lacks the necessary privileges (e.g., not run as Administrator), `OpenProcess()` will fail.
+On protected or higher-privileged processes, administrator rights may be required.
 
 ---
 
-### 3. 📦 Allocating Remote Memory
+### 3. Allocate Memory for the DLL Path
 
 ```cpp
-VirtualAllocEx(..., PAGE_READWRITE);
+LPVOID remoteMemory = VirtualAllocEx(
+    hProcess, nullptr, dllPath.length() + 1,
+    MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
 ```
 
-We allocate enough memory in the remote process to store the **full path of the DLL**. This memory must be:
-
-- Committed and reserved (`MEM_COMMIT | MEM_RESERVE`)
-- Writable (`PAGE_READWRITE`) for copying the string
+Allocates space inside the remote process to hold the DLL path as a null-terminated string. The memory must be writable so it can be populated with the path.
 
 ---
 
-### 4. ✍️ Writing the DLL Path
+### 4. Write the DLL Path into Remote Memory
 
 ```cpp
-WriteProcessMemory(hProcess, remoteMemory, dllPath.c_str(), ...);
+WriteProcessMemory(hProcess, remoteMemory,
+                   dllPath.c_str(), dllPath.length() + 1, nullptr);
 ```
 
-The DLL path is written byte-by-byte into the allocated memory block of the target process.
-
-🧠 Important: The path **must be null-terminated**, or `LoadLibraryA` will not work.
+This copies the DLL path string into the allocated memory space. The path must be absolute and null-terminated to be interpreted correctly by `LoadLibraryA`.
 
 ---
 
-### 5. 🔍 Resolving LoadLibraryA
+### 5. Resolve Address of LoadLibraryA
 
 ```cpp
-GetProcAddress(GetModuleHandleA("kernel32.dll"), "LoadLibraryA");
+FARPROC loadLibraryAddr = GetProcAddress(
+    GetModuleHandleA("kernel32.dll"), "LoadLibraryA");
 ```
 
-We get the address of `LoadLibraryA()` from `kernel32.dll`, which is **almost always loaded** in every Windows process. This function becomes the **entry point** of the new remote thread.
+Since `kernel32.dll` is loaded in nearly every process, its base address is available. `GetProcAddress` retrieves the address of `LoadLibraryA`, which will serve as the entry point for the new remote thread.
 
 ---
 
-### 6. 🧵 Creating the Remote Thread
+### 6. Create the Remote Thread
 
 ```cpp
-CreateRemoteThread(..., loadLibraryAddr, remoteMemory, ...);
+HANDLE hThread = CreateRemoteThread(
+    hProcess, nullptr, 0,
+    (LPTHREAD_START_ROUTINE)loadLibraryAddr,
+    remoteMemory, 0, nullptr);
 ```
 
-- The new thread will start executing at the address of `LoadLibraryA`
-- It will receive the injected DLL path as argument
-- Result: `LoadLibraryA(dllPath)` is executed inside the remote process
-
-✅ If successful, this will load your DLL, triggering its `DllMain()` function.
+This creates a thread inside the target process. The thread will call `LoadLibraryA` using the address of the DLL path we wrote earlier. This causes the target process to load the DLL and execute its `DllMain`.
 
 ---
 
-## 📌 Summary
+### (Optional) 7. Wait for Completion
 
-| API                   | Purpose                               |
-|-----------------------|----------------------------------------|
-| `OpenProcess`         | Get a handle to the target process     |
-| `VirtualAllocEx`      | Allocate memory in the remote process  |
-| `WriteProcessMemory`  | Write the DLL path into the memory     |
-| `GetProcAddress`      | Find the address of `LoadLibraryA`     |
-| `CreateRemoteThread`  | Trigger `LoadLibraryA(dllPath)` remotely |
+```cpp
+WaitForSingleObject(hThread, INFINITE);
+```
+
+Used if you want to ensure the thread completes before continuing execution. Useful in debugging or post-injection validation.
 
 ---
 
-## 🔐 Security Considerations
+## API Summary
 
-- **User Account Control (UAC):** Required privileges can block injection.
-- **AV/EDR detection:** This technique is widely known and often monitored.
-- **LoadLibrary spoofing:** Some defenses check for suspicious DLL loads or block from untrusted paths.
-
----
-
-## 💡 Educational Value
-
-- Teaches fundamental concepts of memory allocation, pointer management, and inter-process communication.
-- Helps understand how benign Windows APIs can be (ab)used for malicious purposes.
-- Lays the groundwork for more advanced techniques like **manual DLL mapping** (coming later in this lab).
+| Function              | Description                              |
+|-----------------------|------------------------------------------|
+| `OpenProcess`         | Obtain a handle to the target process    |
+| `VirtualAllocEx`      | Allocate memory in the target process    |
+| `WriteProcessMemory`  | Write data (DLL path) into that memory   |
+| `GetProcAddress`      | Resolve the address of `LoadLibraryA`    |
+| `CreateRemoteThread`  | Start a thread in the target process     |
 
 ---
 
-## 🔗 Source Code
+## Security Considerations
 
-See [`../src/injection_dll_loadlibrary.cpp`](../src/injection_dll_loadlibrary.cpp)
+- User Account Control (UAC) may block access to higher-privileged processes  
+- Anti-virus and EDR systems often monitor calls to `CreateRemoteThread` and suspicious DLL loads  
+- Some applications validate loaded DLLs or restrict from loading non-whitelisted libraries
+
+For stealth, consider combining with DLL proxying, path obfuscation, or transitioning to more advanced techniques such as reflective DLL injection or manual mapping.
+
+---
+
+## Educational Value
+
+Understanding this technique builds a foundation in:
+
+- Windows process memory layout  
+- Inter-process communication and API usage  
+- DLL loading mechanics  
+- Remote thread execution in user-mode
+
+This method is an essential step before moving on to more advanced payload delivery methods such as manual DLL mapping or shellcode injection.
+
+---
+
+## Source Code
+
+See [`../src/injection_dll_loadlibrary.cpp`](../src/injection_dll_loadlibrary.cpp) for the full implementation.
